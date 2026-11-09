@@ -1,0 +1,18 @@
+{
+  "php": "8.5.8",
+  "parser_tests": 30,
+  "importer_smoke": "passed (in-memory MODX API doubles)",
+  "real_modx_integration": "not run",
+  "feed": {
+    "url": "https://www.tss.ru/bitrix/catalog_export/yandex_800463.xml",
+    "categories": 173,
+    "offers": 3028,
+    "pictures": 5253,
+    "numeric_stock": 0,
+    "zero_prices": 1708
+  },
+  "minishop3_reference": {
+    "tag": "v1.14.3-beta2",
+    "commit": "209344226ecda3204d1a4d3de83faaa82aee83da"
+  }
+}
