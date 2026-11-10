@@ -1,0 +1,70 @@
+<?xml version='1.0' encoding='utf-8'?>
+<yml_catalog>
+  <shop>
+    <categories>
+      <category id="170">Памятники</category>
+      <category id="577" parentId="170">Составные памятники</category>
+      <category id="581" parentId="577">Елизовский</category>
+      <category id="331" parentId="170">Комбинированные памятники</category>
+      <category id="212" parentId="331">Елизовский</category>
+      <category id="214" parentId="212">Размер 1000*500*50(60)</category>
+    </categories>
+    <offers>
+      <offer id="10978" available="true">
+        <url>https://kukmorstone.ru/catalog/product/pamyatnik_kombinirovannyy_p11v_plechi_elizovskiy_gabbro_1000_500_50_60</url>
+        <price>17100</price>
+        <currencyId>RUR</currencyId>
+        <categoryId>214</categoryId>
+        <picture>https://kukmorstone.ru/upload/iblock/a4a/hbc34q4ed5k3k7bno9f1f10osgkk01gl/f8846776-9a1a-11ec-8da9-000c29ab1e9f_207da7c4-a29b-11ef-8f6d-000c29ab1e9f.png</picture>
+        <name>Памятник комбинированный П11В (Плечи) Елизовский/Габбро 1000*500*50(60)</name>
+        <vendorCode>010188</vendorCode>
+        <description>Памятник комбинированный П11В (Плечи) Елизовский/Габбро 1000*500*50(60)</description>
+        <barcode>2000000000091</barcode>
+        <param name="Вес, кг">84</param>
+        <param name="Вид камня">Елизовский</param>
+        <param name="ЦВЕТ КАМНЯ">Коричневый</param>
+        <param name="ФОРМА">Плечи</param>
+        <param name="ДЛИНА (мм)">1000</param>
+        <param name="ШИРИНА (мм)">500</param>
+        <param name="ТОЛЩИНА (мм)">50(60)</param>
+        <param name="Тип формы">Плечи</param>
+        <param name="Вид памятника">Комбинированный</param>
+        <param name="Ориентация">Вертикальные</param>
+        <weight>84</weight>
+        <dimensions>100/50/6</dimensions>
+      </offer>
+      <offer id="12850" available="false">
+        <url>https://kukmorstone.ru/catalog/product/komplekt_kombinirovannyy_elizovskiy_l7v_arka_nd_1000_500_80_90</url>
+        <price>95000</price>
+        <currencyId>RUR</currencyId>
+        <categoryId>581</categoryId>
+        <picture>https://kukmorstone.ru/upload/iblock/acc/8o9a6e3zy2owswe0evkue6jo3ercuf7x/5f584d5f-b155-11ef-8f75-000c29ab1e9f_6c42ceb1-b155-11ef-8f75-000c29ab1e9f.jpg</picture>
+        <picture>https://kukmorstone.ru/upload/iblock/583/evh7laahjhx0xnvyr4mnq5wzdh9xyajt/5f584d5f-b155-11ef-8f75-000c29ab1e9f_6c42cef7-b155-11ef-8f75-000c29ab1e9f.jpg</picture>
+        <picture>https://kukmorstone.ru/upload/iblock/dce/slpgkwemqoqyck6ltjcxv065kgl3cedg/5f584d5f-b155-11ef-8f75-000c29ab1e9f_6c42cf3d-b155-11ef-8f75-000c29ab1e9f.jpg</picture>
+        <name>Комплект комбинированный Елизовский Л7В (арка) НД 1000*500*80(90)</name>
+        <vendorCode>031838</vendorCode>
+        <description>Комплект комбинированный Елизовский Л7В (арка) НД 1000*500*80(90)</description>
+        <param name="Вес, кг">280</param>
+        <param name="Вид камня">Елизовский</param>
+        <weight>280</weight>
+        <dimensions>100/50/9</dimensions>
+      </offer>
+      <offer id="12885" available="false">
+        <url>https://kukmorstone.ru/catalog/product/komplekt_kombinirovannyy_elizovskiy_l13v_volna_nv_1000_500_80_90</url>
+        <price>95000</price>
+        <currencyId>RUR</currencyId>
+        <categoryId>581</categoryId>
+        <picture>https://kukmorstone.ru/upload/iblock/579/on2vg963gqi6notimjql1099i753f4xj/878f965c-b6d6-11ef-8f80-000c29ab1e9f_8e8258d8-b6d6-11ef-8f80-000c29ab1e9f.jpg</picture>
+        <picture>https://kukmorstone.ru/upload/iblock/73d/0300k3pp8o43a2tqkm7ad6uvnwcs8wud/878f965c-b6d6-11ef-8f80-000c29ab1e9f_8e82591e-b6d6-11ef-8f80-000c29ab1e9f.jpg</picture>
+        <picture>https://kukmorstone.ru/upload/iblock/493/wetdm5wly0b4wt1xz5k4ke1kpyfqhqzy/878f965c-b6d6-11ef-8f80-000c29ab1e9f_8e825964-b6d6-11ef-8f80-000c29ab1e9f.jpg</picture>
+        <name>Комплект комбинированный Елизовский Л13В (волна) НВ 1000*500*80(90)</name>
+        <vendorCode>031838</vendorCode>
+        <description>Комплект комбинированный Елизовский Л13В (волна) НВ 1000*500*80(90)</description>
+        <param name="Вес, кг">280</param>
+        <param name="Вид камня">Елизовский</param>
+        <weight>280</weight>
+        <dimensions>100/50/9</dimensions>
+      </offer>
+    </offers>
+  </shop>
+</yml_catalog>

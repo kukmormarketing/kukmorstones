@@ -1,0 +1,260 @@
+{
+  "module": "MemorialsXml 1.3.0",
+  "checked_date": "2026-11-10",
+  "php": "8.5.8",
+  "parser_tests": 42,
+  "importer_smoke": "passed with in-memory MODX API doubles",
+  "real_modx_integration": "not run",
+  "feed_url": "https://kukmorstone.ru/bitrix/catalog_export/memorials.xml",
+  "feed_sha256": "041e6ba458ca69b0f41179e86ccbdb8e2dbb803c6e39965d3400593685b35ddf",
+  "feed": {
+    "duplicate_articles": [
+      [
+        {
+          "article": "031838",
+          "offer_id": "12850",
+          "name": "Комплект комбинированный Елизовский Л7В (арка) НД 1000*500*80(90)"
+        },
+        {
+          "article": "031838",
+          "offer_id": "12885",
+          "name": "Комплект комбинированный Елизовский Л13В (волна) НВ 1000*500*80(90)"
+        }
+      ],
+      [
+        {
+          "article": "031925",
+          "offer_id": "12867",
+          "name": "Комплект комбинированный Винга Д7В (арка) 1000*500*80(90)"
+        },
+        {
+          "article": "031925",
+          "offer_id": "12927",
+          "name": "Комплект комбинированный Винга ДУ57В (прямой) 1000*500*80(90)"
+        }
+      ],
+      [
+        {
+          "article": "033857",
+          "offer_id": "13157",
+          "name": "Комплект памятника Д57В (Прямой) гранит Винга/Габбро 1000*500*50(60)"
+        },
+        {
+          "article": "033857",
+          "offer_id": "13160",
+          "name": "Комплект памятника ДУ57В (Прямой) гранит Винга/Габбро 1000*500*50(60)"
+        }
+      ],
+      [
+        {
+          "article": "037138",
+          "offer_id": "13457",
+          "name": "Комплект памятника ДУ57В (Прямой) гранит Исетский/Габбро 1000*500*50(60)"
+        },
+        {
+          "article": "037138",
+          "offer_id": "13494",
+          "name": "Комплект памятника ДУ57В (Прямой) гранит Исетский/Габбро 1000*500*80(90)"
+        }
+      ],
+      [
+        {
+          "article": "037224",
+          "offer_id": "13500",
+          "name": "Комплект памятника Д11В (Плечи) гранит Елизовский/Габбро 1000*500*80(90)"
+        },
+        {
+          "article": "037224",
+          "offer_id": "13503",
+          "name": "Комплект памятника Д11В (Плечи) гранит Винга/Габбро 1000*500*80(90)"
+        }
+      ],
+      [
+        {
+          "article": "037231",
+          "offer_id": "13507",
+          "name": "Комплект памятника Д11В (Плечи) гранит Возрождение/Габбро 1000*500*80(90)"
+        },
+        {
+          "article": "037231",
+          "offer_id": "13512",
+          "name": "Комплект памятника Д11В (Плечи) гранит Гранатовый амфиболит/Габбро 1000*500*80(90)"
+        }
+      ],
+      [
+        {
+          "article": "037234",
+          "offer_id": "13508",
+          "name": "Комплект памятника Д11 (Плечи) гранит Возрождение 1000*500*80"
+        },
+        {
+          "article": "037234",
+          "offer_id": "13511",
+          "name": "Комплект памятника Д11 (Плечи) гранит Гранатовый амфиболит 1000*500*80"
+        }
+      ],
+      [
+        {
+          "article": "037366",
+          "offer_id": "13516",
+          "name": "Комплект памятника ДУ57 (Прямой) гранит Возрождение 1000*500*80"
+        },
+        {
+          "article": "037366",
+          "offer_id": "13518",
+          "name": "Комплект памятника ДУ57 (Прямой) гранит Гранатовый амфиболит 1000*500*80"
+        }
+      ],
+      [
+        {
+          "article": "050499",
+          "offer_id": "13625",
+          "name": "Комплект памятника В57В (Прямой) гранит Исетский/Габбро НД 1000*500*50(60)"
+        },
+        {
+          "article": "050499",
+          "offer_id": "13690",
+          "name": "Комплект памятника В57В (Прямой) гранит Елизовский/Габбро НД 1000*500*50(60)"
+        }
+      ],
+      [
+        {
+          "article": "050508",
+          "offer_id": "13634",
+          "name": "Комплект памятника В13В (Волна) гранит Исетский/Габбро НУ 1000*500*50(60)"
+        },
+        {
+          "article": "050508",
+          "offer_id": "13683",
+          "name": "Комплект памятника В13В (Волна) гранит Елизовский/Габбро НУ 1000*500*50(60)"
+        }
+      ],
+      [
+        {
+          "article": "050700",
+          "offer_id": "13757",
+          "name": "Комплект памятника В7 (Арка) гранит Винга НВ 1000*500*50"
+        },
+        {
+          "article": "050700",
+          "offer_id": "13821",
+          "name": "Комплект памятника В7 (Арка) гранит Возрождение НВ 1000*500*50"
+        }
+      ],
+      [
+        {
+          "article": "050896",
+          "offer_id": "13930",
+          "name": "Комплект памятника СТ11В (Плечи) гранит Исетский/Габбро НД 1000*500*50(60)"
+        },
+        {
+          "article": "050896",
+          "offer_id": "13961",
+          "name": "Комплект памятника СТ11В (Плечи) гранит Исетский/Габбро НД 1000*500*80(90)"
+        }
+      ],
+      [
+        {
+          "article": "050917",
+          "offer_id": "13950",
+          "name": "Комплект памятника СТ7 (Арка) гранит Исетский НД 1000*500*50"
+        },
+        {
+          "article": "050917",
+          "offer_id": "13951",
+          "name": "Комплект памятника СТ7 (Арка) гранит Исетский НУ 1000*500*50"
+        }
+      ],
+      [
+        {
+          "article": "050933",
+          "offer_id": "13965",
+          "name": "Комплект памятника СТ13 (Плечи) гранит Исетский НВ 1000*500*80"
+        },
+        {
+          "article": "050933",
+          "offer_id": "13968",
+          "name": "Комплект памятника СТ13 (Плечи) гранит Исетский НЦ 1000*500*80"
+        }
+      ],
+      [
+        {
+          "article": "051065",
+          "offer_id": "14086",
+          "name": "Комплект памятника СТ11 (Плечи) гранит Винга НД 1000*500*80"
+        },
+        {
+          "article": "051065",
+          "offer_id": "14090",
+          "name": "Комплект памятника СТ13 (Волна) гранит Винга НД 1000*500*80"
+        }
+      ],
+      [
+        {
+          "article": "051066",
+          "offer_id": "14087",
+          "name": "Комплект памятника СТ11 (Плечи) гранит Винга НУ 1000*500*80"
+        },
+        {
+          "article": "051066",
+          "offer_id": "14091",
+          "name": "Комплект памятника СТ13 (Волна) гранит Винга НУ 1000*500*80"
+        }
+      ],
+      [
+        {
+          "article": "051079",
+          "offer_id": "14100",
+          "name": "Комплект памятника СТ11В (Плечи) гранит Винга/Габбро НВ 1000*500*80(90)"
+        },
+        {
+          "article": "051079",
+          "offer_id": "14164",
+          "name": "Комплект памятника СТ11В (Плечи) гранит Возрождение/Габбро НВ 1000*500*80(90)"
+        }
+      ],
+      [
+        {
+          "article": "051144",
+          "offer_id": "14140",
+          "name": "Комплект памятника СТ57В (Прямой) гранит Возрождение/Габбро НВ 1000*500*50(60)"
+        },
+        {
+          "article": "051144",
+          "offer_id": "14144",
+          "name": "Комплект памятника СТ7В (Арка) гранит Возрождение/Габбро НВ 1000*500*50(60)"
+        }
+      ],
+      [
+        {
+          "article": "051631",
+          "offer_id": "14264",
+          "name": "Колумбарий мемориальный гранит Исетский/Габбро СЕМПРЕ (3 ячейки) 1200*300*400"
+        },
+        {
+          "article": "051631",
+          "offer_id": "14265",
+          "name": "Колумбарий мемориальный гранит Елизовский/Габбро СЕМПРЕ (3 ячейки) 1200*300*400"
+        }
+      ]
+    ],
+    "duplicate_records": 38,
+    "importable_offers": 1732,
+    "categories": 166,
+    "offers": 1770,
+    "with_numeric_stock": 0,
+    "pictures": 4360,
+    "zero_prices": 0
+  },
+  "remote_feed_download": "passed with standard cURL User-Agent",
+  "sample_image_http_download": "passed; 1200x1200 PNG",
+  "regression_composite_primary_keys": "reproduced failure before fix; passed after fix; nonzero IDs and repeat import checked",
+  "real_xpdo_primary_key_contract": "passed against modxcms/xpdo 3.x xPDOObject, no database",
+  "console_batch_tests": "passed with in-memory MODX API: cursors, snapshot, limits, unchanged categories, interrupted images, reported errors, lock, reset",
+  "real_modx_batch_integration": "not run",
+  "console_auto_protocol_tests": "passed: products/images repeat, done/done_with_errors stop, errors stop, stale state discarded, reset disabled",
+  "real_console_auto_integration": "not run; protocol checked against standard MODX-Club/modx-console source",
+  "failed_image_retry_tests": "passed with mocked uploads: only failed URLs, per-item limit, persistent retry cursor, detailed failures, removal of recovered errors, retry of remaining URL, unchanged product cursor, no product reimport, stop on empty queue",
+  "real_failed_image_retry_integration": "not run; user current state/error report not available",
+  "images_only_tests": "passed with mocked gallery: starts with images, per-image limit, only existing products, missing product skip/report, no resource writes, separate unchanged main cursor, no completed-queue restart"
+}
