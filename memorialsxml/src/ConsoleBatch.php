@@ -27,7 +27,7 @@ class ConsoleBatch
         return $importer->importImages($productId, [$url]);
     }
 
-    public function run(int $batchSize = 5, int $maxSeconds = 15, bool $reset = false): array
+    public function run(int $batchSize = 5, int $maxSeconds = 15, bool $reset = false, bool $retryImages = false): array
     {
         if ($batchSize < 1 || $batchSize > 100 || $maxSeconds < 1 || $maxSeconds > 60) {
             throw new RuntimeException('batchSize: 1..100, maxSeconds: 1..60');
@@ -39,14 +39,14 @@ class ConsoleBatch
             throw new RuntimeException('Предыдущий импорт ещё работает. Дождитесь его завершения.');
         }
         try {
-            return $this->lockedRun($batchSize, $maxSeconds, $reset);
+            return $this->lockedRun($batchSize, $maxSeconds, $reset, $retryImages);
         } finally {
             $stmt = $this->modx->prepare('SELECT RELEASE_LOCK(?)');
             if ($stmt) { $stmt->execute([$lockName]); }
         }
     }
 
-    private function lockedRun(int $batchSize, int $maxSeconds, bool $reset): array
+    private function lockedRun(int $batchSize, int $maxSeconds, bool $reset, bool $retryImages): array
     {
         $deadline = microtime(true) + $maxSeconds;
         if (!is_dir($this->directory) && !mkdir($this->directory, 0700, true)) {
@@ -90,6 +90,28 @@ class ConsoleBatch
             ];
             $this->save($state);
         }
+        if ($retryImages && $state['phase'] !== 'retry_images') {
+            if (!in_array($state['phase'], ['done', 'done_with_errors'], true)) {
+                throw new RuntimeException('Сначала завершите текущую очередь товаров и изображений');
+            }
+            if ($state['failed_images']) {
+                $queue = [];
+                foreach ($state['failed_images'] as $error) {
+                    $key = hash('sha256', $error['article'] . ':' . $error['url']);
+                    $queue[$key] = $error;
+                }
+                $state['image_error_history'][] = ['time' => date(DATE_ATOM), 'errors' => $state['failed_images']];
+                $state['retry_queue'] = array_values($queue);
+                $state['failed_images'] = array_values($queue);
+                $state['retry_index'] = 0;
+                $state['retry_total'] = count($queue);
+                $state['retry_success'] = 0;
+                $state['retry_failed'] = 0;
+                $state['pending_retry'] = null;
+                $state['phase'] = 'retry_images';
+                $this->save($state);
+            }
+        }
         if (in_array($state['phase'], ['done', 'done_with_errors'], true)) { return $state; }
         $feed->ensureValidated($path);
         $offers = [];
@@ -104,7 +126,7 @@ class ConsoleBatch
         $state['total_images'] = array_sum(array_map(static fn(array $o): int => count($o['pictures']), $offers));
         $workConfig = $this->config;
         $workConfig['images'] = false; // Gallery has a separate cursor and request budget.
-        $workConfig['image_timeout'] = min(10, max(1, (int)($this->config['image_timeout'] ?? 10)));
+        $workConfig['image_timeout'] = min(120, max(1, (int)($this->config['image_timeout'] ?? 20)));
         $importer = new Importer($this->modx, $workConfig, $feed, $downloader, $this->directory, false);
         if ($state['phase'] === 'products') {
             $importer->run($path, $batchSize, $state['next_offset'], function (array $progress) use (&$state): void {
@@ -143,7 +165,7 @@ class ConsoleBatch
                     $product = $importer->findProduct($o['article']);
                     if (!$product) { throw new RuntimeException('Товар не найден по артикулу'); }
                     $result = $this->uploadImage($importer, (int)$product->get('id'), $url);
-                    if ($result['image_errors'] > 0) { throw new RuntimeException('Ошибка загрузки; подробности в событии image_error'); }
+                    if ($result['image_errors'] > 0) { throw new RuntimeException($result['errors'][0]['error'] ?? 'Ошибка загрузки; подробности в событии image_error'); }
                     $state['images_added'] += $result['images_added'];
                     $state['images_existing'] += $result['images_existing'];
                 } catch (Throwable $e) {
@@ -161,6 +183,41 @@ class ConsoleBatch
                 $state['image_product']++; $state['image_index'] = 0;
             }
             if ($state['image_product'] >= count($offers)) { $state['phase'] = 'done'; }
+        }
+        if ($state['phase'] === 'retry_images') {
+            $handled = 0;
+            $failedArticles = array_column($state['failed_products'], 'article');
+            while ($state['retry_index'] < count($state['retry_queue']) && $handled < $batchSize && microtime(true) < $deadline) {
+                $item = $state['retry_queue'][$state['retry_index']];
+                $pending = $state['pending_retry'];
+                $attempts = $pending && $pending['index'] === $state['retry_index'] ? (int)$pending['attempts'] : 0;
+                $state['pending_retry'] = ['index' => $state['retry_index'], 'article' => $item['article'], 'url' => $item['url'], 'attempts' => $attempts + 1];
+                $this->save($state);
+                try {
+                    if ($attempts >= 2) { throw new RuntimeException('Две попытки повтора не завершились; проверьте генерацию миниатюр/тайм-аут сервера'); }
+                    if (in_array($item['article'], $failedArticles, true)) { throw new RuntimeException('Сначала исправьте ошибку импорта данных товара'); }
+                    $product = $importer->findProduct($item['article']);
+                    if (!$product) { throw new RuntimeException('Товар не найден по артикулу'); }
+                    $result = $this->uploadImage($importer, (int)$product->get('id'), $item['url']);
+                    if ($result['image_errors'] > 0) { throw new RuntimeException($result['errors'][0]['error'] ?? 'Ошибка загрузки; подробности в событии image_error'); }
+                    $state['images_added'] += $result['images_added'];
+                    $state['images_existing'] += $result['images_existing'];
+                    $state['failed_images'] = array_values(array_filter($state['failed_images'], static fn(array $error): bool => !($error['article'] === $item['article'] && $error['url'] === $item['url'])));
+                    $state['retry_success']++;
+                } catch (Throwable $e) {
+                    foreach ($state['failed_images'] as &$error) {
+                        if ($error['article'] === $item['article'] && $error['url'] === $item['url']) { $error['error'] = $e->getMessage(); }
+                    }
+                    unset($error);
+                    $state['retry_failed']++;
+                    Importer::log('retry_image_error', ['article' => $item['article'], 'url' => $item['url'], 'error' => $e->getMessage()]);
+                }
+                $state['pending_retry'] = null;
+                $state['retry_index']++;
+                $handled++;
+                $this->save($state);
+            }
+            if ($state['retry_index'] >= count($state['retry_queue'])) { $state['phase'] = 'done'; }
         }
         if ($state['phase'] === 'done' && ($state['failed_products'] || $state['failed_images'])) {
             $state['phase'] = 'done_with_errors';

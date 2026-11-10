@@ -24,6 +24,10 @@ try {
     verify($_SESSION['Console']['completed'] === false, 'Products trigger another Console request');
     require $dir . '/console-auto.php';
     verify($_SESSION['Console']['completed'] === false, 'Images trigger another Console request');
+    $_SESSION['fixture_phase'] = 'retry_images';
+    require $dir . '/console-auto.php';
+    verify($_SESSION['Console']['completed'] === false, 'Failed-image retries trigger another Console request');
+    unset($_SESSION['fixture_phase']);
     require $dir . '/console-auto.php';
     verify($_SESSION['Console']['completed'] === true, 'Done stops automatic requests');
     $_SESSION['fixture_phase'] = 'done_with_errors';

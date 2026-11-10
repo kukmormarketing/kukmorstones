@@ -120,9 +120,12 @@ namespace {
     use MemorialsXml\{Feed, Downloader, Importer, ConsoleBatch};
     class TestConsoleBatch extends ConsoleBatch {
         public static array $uploads = [];
+        public static bool $failUploads = true;
+        public static bool $detailedFailure = false;
         protected function uploadImage(Importer $importer, int $productId, string $url): array {
             self::$uploads[] = $url;
-            if (str_ends_with($url, '/fail.png')) { throw new \RuntimeException('Simulated image failure'); }
+            if (self::$detailedFailure) { return ['images_added' => 0, 'images_existing' => 0, 'image_errors' => 1, 'errors' => [['error' => 'HTTP 404: source image missing']]]; }
+            if (self::$failUploads && str_ends_with($url, '/fail.png')) { throw new \RuntimeException('Simulated image failure'); }
             return ['images_added' => 1, 'images_existing' => 0, 'image_errors' => 0];
         }
     }
@@ -183,6 +186,11 @@ namespace {
         file_put_contents($temp, str_replace('</offer>', '<weight>84</weight></offer>', sprintf($xml, '300')));
         $stats = $run();
         ensure($modx->data[4]->get('weight') === 84.0 && $modx->data[4]->get('stock') === 25.0, 'Weight or missing-stock mapping failed');
+        $imageProbe = new Importer($modx, $config, new Feed($config), new Downloader($config), dirname($temp), false);
+        $imageResult = $imageProbe->importImages(4, ['https://kukmorstone.ru/unsupported.svg']);
+        ensure($imageResult['image_errors'] === 1 && count($imageResult['errors']) === 1 && str_contains($imageResult['errors'][0]['error'], 'расширение'), 'Image failure detail not returned');
+        $imageResult = $imageProbe->importImages(4, ['https://kukmorstone.ru/another.txt']);
+        ensure(count($imageResult['errors']) === 1 && $imageResult['errors'][0]['url'] === 'https://kukmorstone.ru/another.txt', 'Image failure result leaked previous call errors');
         $batchDir = sys_get_temp_dir() . '/memorials-batch-test-' . bin2hex(random_bytes(8));
         $batchModx = new \MODX\Revolution\modX();
         $batchModx->resources[1] = new msCategory(['id' => 1, 'context_key' => 'web', 'template' => 7]);
@@ -220,6 +228,23 @@ namespace {
             $beforeCalls = count($batchModx->calls);
             $batchRun();
             ensure(count($batchModx->calls) === $beforeCalls, 'Completed run restarted automatically');
+            // Targeted retries must neither reimport products nor redownload the live feed.
+            $retryRun = static fn(): array => (new TestConsoleBatch($batchModx, $batchConfig, $batchDir))->run(1, 60, false, true);
+            TestConsoleBatch::$failUploads = false;
+            TestConsoleBatch::$detailedFailure = true;
+            $state = $retryRun();
+            ensure($state['phase'] === 'retry_images' && $state['retry_index'] === 1 && $state['retry_total'] === 2, 'Retry batch limit ignored');
+            ensure($state['failed_images'][0]['error'] === 'HTTP 404: source image missing', 'Detailed image failure was lost');
+            TestConsoleBatch::$detailedFailure = false;
+            $state = $retryRun();
+            ensure($state['phase'] === 'done_with_errors' && count($state['failed_images']) === 1, 'Retry did not preserve unresolved error');
+            // A new manual retry cycle processes only the remaining failed URL.
+            $state = $retryRun();
+            ensure($state['phase'] === 'done' && !$state['failed_images'] && $state['retry_total'] === 1, 'Recovered image remains in failed queue');
+            ensure($state['images_processed'] === 6 && $state['next_offset'] === 3 && count($batchModx->calls) === $beforeCalls, 'Retry reset the import or reimported products');
+            $uploadsBefore = count(TestConsoleBatch::$uploads);
+            $retryRun();
+            ensure(count(TestConsoleBatch::$uploads) === $uploadsBefore, 'Empty retry queue restarted automatically');
             $batchModx->dbLocked = true;
             $blocked = false;
             try { $batchRun(); } catch (\RuntimeException $e) { $blocked = true; }

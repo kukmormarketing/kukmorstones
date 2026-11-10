@@ -1,5 +1,5 @@
 {
-  "module": "MemorialsXml 1.1.1",
+  "module": "MemorialsXml 1.2.0",
   "checked_date": "2026-11-10",
   "php": "8.5.8",
   "parser_tests": 42,
@@ -253,5 +253,7 @@
   "console_batch_tests": "passed with in-memory MODX API: cursors, snapshot, limits, unchanged categories, interrupted images, reported errors, lock, reset",
   "real_modx_batch_integration": "not run",
   "console_auto_protocol_tests": "passed: products/images repeat, done/done_with_errors stop, errors stop, stale state discarded, reset disabled",
-  "real_console_auto_integration": "not run; protocol checked against standard MODX-Club/modx-console source"
+  "real_console_auto_integration": "not run; protocol checked against standard MODX-Club/modx-console source",
+  "failed_image_retry_tests": "passed with mocked uploads: only failed URLs, per-item limit, persistent retry cursor, detailed failures, removal of recovered errors, retry of remaining URL, unchanged product cursor, no product reimport, stop on empty queue",
+  "real_failed_image_retry_integration": "not run; user current state/error report not available"
 }

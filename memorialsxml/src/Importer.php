@@ -9,6 +9,7 @@ use Throwable;
 
 final class Importer
 {
+    private array $imageFailures = [];
     private array $categoryMap = [];
     private array $categoryExisting = [];
     private array $definitions = [];
@@ -188,6 +189,7 @@ final class Importer
                 $this->stats['images_added']++;
             } catch (Throwable $e) {
                 $this->stats['image_errors']++;
+                $this->imageFailures[] = ['product_id' => $productId, 'url' => $url, 'error' => $e->getMessage()];
                 self::log('image_error', ['product_id' => $productId, 'url' => $url, 'error' => $e->getMessage()]);
             } finally {
                 if ($file && is_file($file)) { unlink($file); }
@@ -203,11 +205,13 @@ final class Importer
     public function importImages(int $productId, array $urls): array
     {
         $before = $this->stats;
+        $failureCount = count($this->imageFailures);
         $this->images($productId, $urls);
         return [
             'images_added' => $this->stats['images_added'] - $before['images_added'],
             'images_existing' => $this->stats['images_existing'] - $before['images_existing'],
             'image_errors' => $this->stats['image_errors'] - $before['image_errors'],
+            'errors' => array_slice($this->imageFailures, $failureCount),
         ];
     }
 
