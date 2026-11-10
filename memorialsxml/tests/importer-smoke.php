@@ -253,6 +253,28 @@ namespace {
             file_put_contents($temp, $batchXml);
             $state = $batchRun(true);
             ensure($state['next_offset'] === 1 && $state['phase'] === 'products' && $state['images_processed'] === 0, 'Explicit reset failed');
+            $onlyDir = $batchDir . '-images';
+            $onlyConfig = $batchConfig; $onlyConfig['images_only'] = true;
+            unset($batchModx->resources[6], $batchModx->data[6]); // Third product does not exist.
+            $mainStateBefore = file_get_contents($batchDir . '/state.json');
+            $callsBefore = count($batchModx->calls);
+            $uploadsBefore = count(TestConsoleBatch::$uploads);
+            try {
+                $onlyRun = static fn(): array => (new TestConsoleBatch($batchModx, $onlyConfig, $onlyDir))->run(1, 60);
+                $onlyState = $onlyRun();
+                ensure($onlyState['phase'] === 'images' && $onlyState['images_processed'] === 1 && $onlyState['next_offset'] === 0, 'Images-only mode ran product phase');
+                for ($i = 0; $i < 10 && !str_starts_with($onlyState['phase'], 'done'); $i++) { $onlyState = $onlyRun(); }
+                ensure($onlyState['phase'] === 'done' && $onlyState['missing_products'] === ['0203'] && $onlyState['missing_product_images'] === 2, 'Missing product was not skipped and reported');
+                ensure($onlyState['images_added'] === 4 && count(TestConsoleBatch::$uploads) === $uploadsBefore + 4, 'Wrong image-only upload count');
+                ensure(count($batchModx->calls) === $callsBefore && !isset($batchModx->resources[6]), 'Images-only mode created/updated products');
+                ensure(file_get_contents($batchDir . '/state.json') === $mainStateBefore, 'Images-only mode changed main import cursor');
+                $onlyRun();
+                ensure(count(TestConsoleBatch::$uploads) === $uploadsBefore + 4, 'Completed images-only queue restarted');
+            } finally {
+                foreach (glob($onlyDir . '/*') ?: [] as $file) { unlink($file); }
+                if (is_dir($onlyDir)) { rmdir($onlyDir); }
+            }
+
         } finally {
             foreach (glob($batchDir . '/*') ?: [] as $file) { unlink($file); }
             if (is_dir($batchDir)) { rmdir($batchDir); }

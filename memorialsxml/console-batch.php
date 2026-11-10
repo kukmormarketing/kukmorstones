@@ -13,16 +13,28 @@ try {
     $config = require __DIR__ . '/config.php';
     $config['modx_base_path'] = MODX_BASE_PATH;
     $config['images'] = true;
+    if (!empty($imagesOnly)) {
+        if (!defined('MemorialsXml\\ConsoleBatch::IMAGES_ONLY_SUPPORTED')) {
+            throw new \RuntimeException('Обновите модуль до версии 1.3.0');
+        }
+        $config['images_only'] = true;
+    }
     $config['image_timeout'] = (int)($imageTimeout ?? $config['image_timeout'] ?? 20);
     // Prevent long waits for a single remote response.
     $config['http_timeout'] = min(60, (int)$config['http_timeout']);
     $modx->services->get('ms3')->initialize('mgr');
     $modx->services->get('ms3')->loadMap();
-    $directory = MODX_CORE_PATH . 'cache/memorialsxml-batch/' . substr(hash('sha256', $config['source_key'] . ':' . $config['context'] . ':' . $config['root_id']), 0, 24);
+    $directory = MODX_CORE_PATH . (!empty($imagesOnly) ? 'cache/memorialsxml-images-only/' : 'cache/memorialsxml-batch/') . substr(hash('sha256', $config['source_key'] . ':' . $config['context'] . ':' . $config['root_id']), 0, 24);
     $runner = new \MemorialsXml\ConsoleBatch($modx, $config, $directory);
     $state = $runner->run((int)($batchSize ?? 5), (int)($maxSeconds ?? 15), (bool)($resetImport ?? false), (bool)($retryImages ?? false));
     echo "\nФаза: " . $state['phase'] . "\n";
-    echo 'Товары: ' . $state['next_offset'] . '/' . $state['total_products'] . "\n";
+    if (!empty($imagesOnly)) {
+        echo "Режим: только изображения существующих товаров\n";
+        echo 'Не найдены товары: ' . count($state['missing_products'] ?? []) . "\n";
+        echo 'Пропущено картинок отсутствующих товаров: ' . ($state['missing_product_images'] ?? 0) . "\n";
+    } else {
+        echo 'Товары: ' . $state['next_offset'] . '/' . $state['total_products'] . "\n";
+    }
     echo 'Изображения: ' . $state['images_processed'] . '/' . $state['total_images'] . "\n";
     echo 'Добавлено изображений: ' . $state['images_added'] . "\n";
     echo 'Уже в галерее: ' . $state['images_existing'] . "\n";

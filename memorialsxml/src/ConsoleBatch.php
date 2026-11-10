@@ -9,6 +9,7 @@ use Throwable;
 /** Persistent, bounded Console runs. Each call handles only one phase. */
 class ConsoleBatch
 {
+    public const IMAGES_ONLY_SUPPORTED = true;
     public function __construct(private modX $modx, private array $config, private string $directory) {}
 
     private function save(array $state): void
@@ -55,7 +56,7 @@ class ConsoleBatch
         $signatureConfig = array_intersect_key($this->config, array_flip([
             'source', 'source_key', 'context', 'root_id', 'images', 'product_template',
             'category_template', 'publish_new_products', 'publish_new_categories',
-            'currency', 'currency_aliases', 'duplicate_policy', 'zero_price_policy',
+            'currency', 'currency_aliases', 'duplicate_policy', 'zero_price_policy', 'images_only',
         ]));
         $signature = hash('sha256', json_encode($signatureConfig, JSON_THROW_ON_ERROR));
         $stateFile = $this->directory . '/state.json';
@@ -81,12 +82,13 @@ class ConsoleBatch
             $report = $feed->inspect($path);
             $state = [
                 'version' => 1, 'signature' => $signature, 'feed_sha256' => hash_file('sha256', $path),
-                'started_at' => date(DATE_ATOM), 'phase' => 'products', 'next_offset' => 0,
+                'started_at' => date(DATE_ATOM), 'phase' => !empty($this->config['images_only']) ? 'images' : 'products', 'next_offset' => 0,
                 'total_products' => $report['importable_offers'],
                 'duplicate_records' => $report['duplicate_records'],
                 'image_product' => 0, 'image_index' => 0, 'images_processed' => 0,
                 'total_images' => 0, 'images_added' => 0, 'images_existing' => 0,
                 'failed_products' => [], 'failed_images' => [], 'pending_image' => null,
+                'missing_products' => [], 'missing_product_images' => 0,
             ];
             $this->save($state);
         }
@@ -163,6 +165,19 @@ class ConsoleBatch
                     if ($attempts >= 2) { throw new RuntimeException('Две предыдущие попытки не завершились; изображение пропущено'); }
                     if (in_array($o['article'], $failedArticles, true)) { throw new RuntimeException('Данные товара не были импортированы'); }
                     $product = $importer->findProduct($o['article']);
+                    if (!$product && !empty($this->config['images_only'])) {
+                        $remaining = count($o['pictures']) - $state['image_index'];
+                        $state['missing_products'][] = $o['article'];
+                        $state['missing_product_images'] += $remaining;
+                        $state['images_processed'] += $remaining;
+                        $state['image_product']++;
+                        $state['image_index'] = 0;
+                        $state['pending_image'] = null;
+                        $handled++;
+                        $this->save($state);
+                        Importer::log('images_only_product_missing', ['article' => $o['article'], 'skipped_images' => $remaining]);
+                        continue;
+                    }
                     if (!$product) { throw new RuntimeException('Товар не найден по артикулу'); }
                     $result = $this->uploadImage($importer, (int)$product->get('id'), $url);
                     if ($result['image_errors'] > 0) { throw new RuntimeException($result['errors'][0]['error'] ?? 'Ошибка загрузки; подробности в событии image_error'); }
