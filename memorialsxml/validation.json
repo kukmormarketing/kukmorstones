@@ -1,5 +1,5 @@
 {
-  "module": "MemorialsXml 1.1.0",
+  "module": "MemorialsXml 1.1.1",
   "checked_date": "2026-11-10",
   "php": "8.5.8",
   "parser_tests": 42,
@@ -251,5 +251,7 @@
   "regression_composite_primary_keys": "reproduced failure before fix; passed after fix; nonzero IDs and repeat import checked",
   "real_xpdo_primary_key_contract": "passed against modxcms/xpdo 3.x xPDOObject, no database",
   "console_batch_tests": "passed with in-memory MODX API: cursors, snapshot, limits, unchanged categories, interrupted images, reported errors, lock, reset",
-  "real_modx_batch_integration": "not run"
+  "real_modx_batch_integration": "not run",
+  "console_auto_protocol_tests": "passed: products/images repeat, done/done_with_errors stop, errors stop, stale state discarded, reset disabled",
+  "real_console_auto_integration": "not run; protocol checked against standard MODX-Club/modx-console source"
 }

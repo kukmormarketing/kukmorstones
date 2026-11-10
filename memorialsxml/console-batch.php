@@ -31,7 +31,9 @@ try {
     echo 'Позиция и ошибки: ' . $directory . "/state.json\n";
     echo in_array($state['phase'], ['done', 'done_with_errors'], true)
         ? "Цикл завершён. При наличии ошибок проверьте state.json.\n"
-        : "Повторите тот же код Console: продолжится следующая порция.\n";
+        : (!empty($automaticRepeat)
+            ? "Следующая порция запустится автоматически через Console.\n"
+            : "Повторите тот же код Console: продолжится следующая порция.\n");
 } catch (\Throwable $e) {
     echo "\nОшибка: " . $e->getMessage() . "\n";
 }
