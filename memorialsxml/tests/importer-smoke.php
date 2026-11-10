@@ -19,10 +19,24 @@ namespace MODX\Revolution {
         public function isError(): bool { return false; }
         public function getObject(): array { return $this->object; }
     }
+    class Statement {
+        private int $value = 0;
+        public function __construct(private modX $modx, private string $sql) {}
+        public function execute($parameters): bool {
+            if (str_contains($this->sql, 'GET_LOCK')) {
+                $this->value = $this->modx->dbLocked ? 0 : 1;
+                if ($this->value) { $this->modx->dbLocked = true; }
+            } else { $this->modx->dbLocked = false; $this->value = 1; }
+            return true;
+        }
+        public function fetchColumn(): int { return $this->value; }
+    }
     class Cache { public function refresh(...$args): void {} }
     class modX {
         public array $resources = [], $data = [], $options = [], $definitions = [], $bindings = [], $calls = [];
         public Cache $cacheManager;
+        public bool $dbLocked = false;
+        public function prepare($sql): Statement { return new Statement($this, $sql); }
         public function __construct() { $this->cacheManager = new Cache(); }
         public function getFields($class): array { return array_fill_keys(['id', 'pagetitle', 'alias', 'parent', 'properties', 'template', 'published', 'hidemenu', 'show_in_tree', 'context_key', 'class_key', 'content', 'richtext', 'deleted'], null); }
         public function getOption($name, $options = null, $default = null) { return $default; }
@@ -102,7 +116,16 @@ namespace {
     require dirname(__DIR__) . '/src/Feed.php';
     require dirname(__DIR__) . '/src/Downloader.php';
     require dirname(__DIR__) . '/src/Importer.php';
-    use MemorialsXml\{Feed, Downloader, Importer};
+    require dirname(__DIR__) . '/src/ConsoleBatch.php';
+    use MemorialsXml\{Feed, Downloader, Importer, ConsoleBatch};
+    class TestConsoleBatch extends ConsoleBatch {
+        public static array $uploads = [];
+        protected function uploadImage(Importer $importer, int $productId, string $url): array {
+            self::$uploads[] = $url;
+            if (str_ends_with($url, '/fail.png')) { throw new \RuntimeException('Simulated image failure'); }
+            return ['images_added' => 1, 'images_existing' => 0, 'image_errors' => 0];
+        }
+    }
     use MiniShop3\Model\{msCategory, msProduct};
     function ensure(bool $ok, string $message): void { if (!$ok) { throw new \RuntimeException($message); } }
     $config = require dirname(__DIR__) . '/config.example.php';
@@ -160,6 +183,56 @@ namespace {
         file_put_contents($temp, str_replace('</offer>', '<weight>84</weight></offer>', sprintf($xml, '300')));
         $stats = $run();
         ensure($modx->data[4]->get('weight') === 84.0 && $modx->data[4]->get('stock') === 25.0, 'Weight or missing-stock mapping failed');
+        $batchDir = sys_get_temp_dir() . '/memorials-batch-test-' . bin2hex(random_bytes(8));
+        $batchModx = new \MODX\Revolution\modX();
+        $batchModx->resources[1] = new msCategory(['id' => 1, 'context_key' => 'web', 'template' => 7]);
+        $batchConfig = $config; $batchConfig['source'] = $temp; $batchConfig['images'] = true;
+        $batchXml = '<yml_catalog><shop><categories><category id="a">A</category><category id="b" parentId="a">B</category></categories><offers>';
+        for ($i = 1; $i <= 3; $i++) {
+            $picture2 = $i === 3 ? 'https://kukmorstone.ru/fail.png' : 'https://kukmorstone.ru/' . $i . '-2.png';
+            $batchXml .= '<offer><name>Batch ' . $i . '</name><vendorCode>020' . $i . '</vendorCode><categoryId>b</categoryId><price>100</price><currencyId>RUR</currencyId><picture>https://kukmorstone.ru/' . $i . '-1.png</picture><picture>' . $picture2 . '</picture></offer>';
+        }
+        $batchXml .= '</offers></shop></yml_catalog>';
+        file_put_contents($temp, $batchXml);
+        $batchRun = static fn(bool $reset = false): array => (new TestConsoleBatch($batchModx, $batchConfig, $batchDir))->run(1, 60, $reset);
+        try {
+            $state = $batchRun();
+            ensure($state['next_offset'] === 1 && $state['phase'] === 'products', 'Batch did not stop after first product');
+            $beforeCalls = count($batchModx->calls);
+            // Live feed changes must not change the snapshot being processed.
+            file_put_contents($temp, str_replace('0202', '9999', $batchXml));
+            $state = $batchRun();
+            ensure($state['next_offset'] === 2, 'Batch restarted instead of resuming');
+            ensure(count($batchModx->calls) === $beforeCalls + 1, 'Unchanged categories were saved again');
+            $state = $batchRun();
+            ensure($state['phase'] === 'images' && $state['next_offset'] === 3 && !TestConsoleBatch::$uploads, 'Products/images phases were mixed');
+            $state = $batchRun();
+            ensure($state['images_processed'] === 1 && count(TestConsoleBatch::$uploads) === 1, 'Image batch limit ignored');
+            $state = $batchRun();
+            ensure($state['images_processed'] === 2 && $state['images_added'] === 2, 'Image cursor not resumed');
+            // Simulate two requests being killed inside the third image upload.
+            $state['pending_image'] = ['product' => 1, 'index' => 0, 'attempts' => 2];
+            file_put_contents($batchDir . '/state.json', json_encode($state));
+            $state = $batchRun();
+            ensure($state['images_processed'] === 3 && count($state['failed_images']) === 1 && count(TestConsoleBatch::$uploads) === 2, 'Interrupted image retried forever');
+            for ($i = 0; $i < 5 && !str_starts_with($state['phase'], 'done'); $i++) { $state = $batchRun(); }
+            ensure($state['phase'] === 'done_with_errors' && $state['images_processed'] === 6 && count($state['failed_images']) === 2, 'Image errors or completion lost');
+            $beforeCalls = count($batchModx->calls);
+            $batchRun();
+            ensure(count($batchModx->calls) === $beforeCalls, 'Completed run restarted automatically');
+            $batchModx->dbLocked = true;
+            $blocked = false;
+            try { $batchRun(); } catch (\RuntimeException $e) { $blocked = true; }
+            ensure($blocked, 'Parallel import lock ignored');
+            $batchModx->dbLocked = false;
+            file_put_contents($temp, $batchXml);
+            $state = $batchRun(true);
+            ensure($state['next_offset'] === 1 && $state['phase'] === 'products' && $state['images_processed'] === 0, 'Explicit reset failed');
+        } finally {
+            foreach (glob($batchDir . '/*') ?: [] as $file) { unlink($file); }
+            if (is_dir($batchDir)) { rmdir($batchDir); }
+        }
+        echo "OK: persistent Console batches (product/image cursors, snapshot, limits, unchanged categories, interruption, errors, lock, reset)\n";
         echo "OK: importer smoke (dry-run, hierarchy, repeat import, price update, zero price, preservation)\n";
     } finally { unlink($temp); }
 }

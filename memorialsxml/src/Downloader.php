@@ -19,7 +19,7 @@ final class Downloader
         }
     }
 
-    public function download(string $url, string $target, int $limit): void
+    public function download(string $url, string $target, int $limit, ?int $timeout = null): void
     {
         $this->checkUrl($url);
         $out = fopen($target, 'wb');
@@ -31,7 +31,7 @@ final class Downloader
                 CURLOPT_FOLLOWLOCATION => false,
                 CURLOPT_PROTOCOLS_STR => 'http,https',
                 CURLOPT_CONNECTTIMEOUT => 20,
-                CURLOPT_TIMEOUT => (int)$this->config['http_timeout'],
+                CURLOPT_TIMEOUT => $timeout ?? (int)$this->config['http_timeout'],
                 CURLOPT_SSL_VERIFYPEER => true,
                 CURLOPT_SSL_VERIFYHOST => 2,
                 CURLOPT_USERAGENT => $this->config['http_user_agent'] ?? ('curl/' . curl_version()['version']),

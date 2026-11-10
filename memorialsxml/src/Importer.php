@@ -71,6 +71,10 @@ final class Importer
         if ($existing && $existing->get('deleted')) {
             throw new RuntimeException('Импортированная категория в корзине MODX: ' . $id);
         }
+        if ($existing && (string)$existing->get('pagetitle') === $c['name']
+            && (int)$existing->get('parent') === $parent) {
+            return $this->categoryMap[$id] = (int)$existing->get('id');
+        }
         if ($this->dryRun) {
             $cid = $existing ? (int)$existing->get('id') : $this->virtualId--;
         } else {
@@ -167,7 +171,8 @@ final class Importer
                     throw new RuntimeException('Неподдерживаемое расширение изображения');
                 }
                 $file = $this->tempDir . '/image-' . hash('sha256', $url) . '.' . $ext;
-                $this->downloader->download($url, $file, (int)$this->config['max_image_bytes']);
+                self::log('image_start', ['product_id' => $productId, 'url' => $url]);
+                $this->downloader->download($url, $file, (int)$this->config['max_image_bytes'], (int)($this->config['image_timeout'] ?? 20));
                 $size = @getimagesize($file);
                 if (!$size || !in_array($size[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP, IMAGETYPE_GIF], true)
                     || $size[0] * $size[1] > $this->config['max_image_pixels']) {
@@ -190,8 +195,26 @@ final class Importer
         }
     }
 
-    public function run(string $path, int $limit = 0): array
+    public function findProduct(string $article): ?msProduct
     {
+        return $this->product($article);
+    }
+
+    public function importImages(int $productId, array $urls): array
+    {
+        $before = $this->stats;
+        $this->images($productId, $urls);
+        return [
+            'images_added' => $this->stats['images_added'] - $before['images_added'],
+            'images_existing' => $this->stats['images_existing'] - $before['images_existing'],
+            'image_errors' => $this->stats['image_errors'] - $before['image_errors'],
+        ];
+    }
+
+    public function run(string $path, int $limit = 0, int $offset = 0, ?callable $checkpoint = null, float $deadline = 0.0): array
+    {
+        if ($offset < 0 || $limit < 0) { throw new RuntimeException('Отрицательный offset/limit'); }
+        $this->stats['next_offset'] = $offset;
         $this->feed->ensureValidated($path);
         $categories = $this->feed->categories($path);
         $root = $this->modx->getObject(msCategory::class, (int)$this->config['root_id']);
@@ -212,6 +235,7 @@ final class Importer
         }
         foreach (array_keys($categories) as $id) { $this->category((string)$id, $categories); }
         $count = 0;
+        $position = 0;
         try {
             foreach ($this->feed->nodes($path, 'offer') as $node) {
                 $o = $this->feed->offer($node);
@@ -221,8 +245,11 @@ final class Importer
                     self::log('duplicate_skipped', ['article' => $article, 'offer_id' => $o['external_id'], 'name' => $o['name']]);
                     continue;
                 }
-                if ($limit > 0 && $count >= $limit) { break; }
+                if ($position++ < $offset) { continue; }
+                if (($limit > 0 && $count >= $limit) || ($deadline > 0 && microtime(true) >= $deadline)) { break; }
                 $count++;
+                $failure = null;
+                self::log('product_start', ['article' => $article, 'offset' => $position - 1]);
                 try {
                     $existing = $this->product($article);
                     $category = $this->categoryMap[$o['category']];
@@ -266,8 +293,13 @@ final class Importer
                     $this->stats[$action]++;
                     self::log('product', ['article' => $article, 'id' => $pid, 'action' => $action, 'dry_run' => $this->dryRun]);
                 } catch (Throwable $e) {
+                    $failure = $e->getMessage();
                     $this->stats['failed']++;
                     self::log('product_error', ['article' => $article, 'error' => $e->getMessage()]);
+                }
+                $this->stats['next_offset'] = $position;
+                if ($checkpoint) {
+                    $checkpoint(['next_offset' => $position, 'article' => $article, 'error' => $failure]);
                 }
             }
         } finally {
