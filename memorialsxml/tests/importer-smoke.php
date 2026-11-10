@@ -77,7 +77,18 @@ namespace MiniShop3\Model {
         }
     }
     class msCategoryOption extends msOption {
-        public function save(): bool { $this->modx->bindings[$this->get('category_id') . ':' . $this->get('option_id')] = $this; return true; }
+        // Match xPDO: fromArray() skips composite primary keys by default.
+        public function fromArray($fields, $prefix = '', $setPrimaryKeys = false): void {
+            foreach ($fields as $key => $value) {
+                if (!$setPrimaryKeys && in_array($key, ['option_id', 'category_id'], true)) { continue; }
+                $this->set($key, $value);
+            }
+        }
+        public function save(): bool {
+            if ((int)$this->get('category_id') < 1 || (int)$this->get('option_id') < 1) { return false; }
+            $this->modx->bindings[$this->get('category_id') . ':' . $this->get('option_id')] = $this;
+            return true;
+        }
     }
     class msProductOption extends msOption {
         public function saveProductOptions($id, $values, $removeOther): bool {
@@ -111,9 +122,14 @@ namespace {
         ensure(count($modx->resources) === 1 && !$modx->calls, 'Dry run mutated resources');
         $stats = $run();
         ensure($stats['created'] === 1 && count($modx->resources) === 4, 'First import did not create category tree and product');
+        ensure(count($modx->bindings) === 2, 'Category options were not bound');
+        foreach ($modx->bindings as $binding) {
+            ensure((int)$binding->get('category_id') === 3 && (int)$binding->get('option_id') > 0 && (int)$binding->get('active') === 1, 'Composite category-option primary keys lost');
+        }
         $product = $modx->resources[4];
         ensure($product instanceof msProduct && $product->get('parent') === 3, 'Wrong product parent');
         ensure($modx->resources[3]->get('parent') === 2, 'Wrong category hierarchy');
+        $bindingCount = count($modx->bindings);
         // Simulate edits in MODX: hidden product, custom alias, unrelated option.
         $product->set('published', 0); $product->set('template', 99);
         $modx->resources[2]->set('alias', 'custom-alias');
@@ -121,6 +137,7 @@ namespace {
         file_put_contents($temp, sprintf($xml, '200'));
         $stats = $run();
         ensure($stats['updated'] === 1 && count($modx->resources) === 4, 'Repeat import created duplicates');
+        ensure(count($modx->bindings) === $bindingCount, 'Repeat import duplicated category-option links');
         ensure($modx->data[4]->get('price') === 200.0, 'Price was not updated');
         ensure($product->get('published') === 0 && $product->get('template') === 99, 'Publication/template changed on update');
         ensure($modx->resources[2]->get('alias') === 'custom-alias', 'Category identity depends on alias');

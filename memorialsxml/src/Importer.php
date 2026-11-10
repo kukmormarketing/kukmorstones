@@ -102,6 +102,9 @@ final class Importer
 
     private function options(int $productId, int $categoryId, array $options): void
     {
+        if ($productId < 1 || $categoryId < 1) {
+            throw new RuntimeException('Некорректный ID товара или категории для характеристик');
+        }
         $values = [];
         foreach ($options as $key => $o) {
             if (!isset($this->definitions[$key])) {
@@ -115,14 +118,25 @@ final class Importer
                     ]);
                     if (!$definition->save()) { throw new RuntimeException('Не удалось создать опцию: ' . $key); }
                 }
-                $this->definitions[$key] = (int)$definition->get('id');
+                $optionId = (int)$definition->get('id');
+                if ($optionId < 1) { throw new RuntimeException('Опция не имеет положительного ID: ' . $key); }
+                $this->definitions[$key] = $optionId;
             }
             $bindingKey = $categoryId . ':' . $key;
             if (!isset($this->bindings[$bindingKey])) {
                 $criteria = ['category_id' => $categoryId, 'option_id' => $this->definitions[$key]];
                 if (!$this->modx->getObject(msCategoryOption::class, $criteria)) {
                     $binding = $this->modx->newObject(msCategoryOption::class);
-                    $binding->fromArray($criteria + ['active' => 1, 'required' => 0]);
+                    // Both IDs form the primary key. xPDO fromArray() skips them
+                    // unless setPrimaryKeys=true; assign explicitly to avoid (0,0).
+                    $binding->set('category_id', $categoryId);
+                    $binding->set('option_id', $this->definitions[$key]);
+                    $binding->set('active', 1);
+                    $binding->set('required', 0);
+                    if ((int)$binding->get('category_id') !== $categoryId
+                        || (int)$binding->get('option_id') !== $this->definitions[$key]) {
+                        throw new RuntimeException('Не установлены ID привязки характеристики: ' . $key);
+                    }
                     if (!$binding->save()) { throw new RuntimeException('Не удалось привязать опцию к категории'); }
                 }
                 $this->bindings[$bindingKey] = true;
