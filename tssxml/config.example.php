@@ -23,6 +23,9 @@ return [
     'stock_tags' => ['quantity', 'stock', 'count'],
     'stock_params' => ['Остаток', 'Остаток на складе', 'Количество'],
     'currency' => 'RUB',
+    'currency_aliases' => ['RUR' => 'RUB'],
+    'duplicate_policy' => 'error',
+    'http_user_agent' => null,
     // preserve: нулевая цена не заменяет существующую; новые без цены не публикуются.
     // import: переносить 0 как обычную цену, публикация по publish_new_products.
     'zero_price_policy' => 'preserve',

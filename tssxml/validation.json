@@ -1,18 +1,23 @@
 {
+  "module": "TssXml 1.1.0",
+  "date": "2026-11-14",
   "php": "8.5.8",
-  "parser_tests": 30,
-  "importer_smoke": "passed (in-memory MODX API doubles)",
-  "real_modx_integration": "not run",
+  "parser_tests": 42,
+  "feed_url": "https://www.tss.ru/bitrix/catalog_export/yandex_800463.xml",
+  "feed_sha256": "54215d27a83ff0d461207d86e79fcc3faa3cb4ee776295d47900a2041c75c0fe",
   "feed": {
-    "url": "https://www.tss.ru/bitrix/catalog_export/yandex_800463.xml",
+    "duplicate_articles": [],
+    "duplicate_records": 0,
+    "importable_offers": 3028,
     "categories": 173,
     "offers": 3028,
+    "with_numeric_stock": 0,
     "pictures": 5253,
-    "numeric_stock": 0,
     "zero_prices": 1708
   },
-  "minishop3_reference": {
-    "tag": "v1.14.3-beta2",
-    "commit": "209344226ecda3204d1a4d3de83faaa82aee83da"
-  }
+  "batch_tests": "passed with in-memory MODX API doubles",
+  "console_auto_protocol": "passed",
+  "real_xpdo_primary_key_contract": "passed without database",
+  "real_modx_integration": "not run",
+  "known_site_issue": "user Media Source parseProperties hang not confirmed resolved; Console defaults to no images"
 }

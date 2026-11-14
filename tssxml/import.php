@@ -27,12 +27,15 @@ try {
     }
     $configPath = $options['config'] ?? __DIR__ . '/config.php';
     if (!is_file($configPath)) { throw new RuntimeException('Создайте config.php из config.example.php'); }
-    $config = require $configPath;
+    $customConfig = require $configPath;
+    if (!is_array($customConfig)) { throw new RuntimeException('Конфигурация должна вернуть массив'); }
+    $config = array_replace(require __DIR__ . '/config.example.php', $customConfig);
     if (!is_array($config)) { throw new RuntimeException('Конфигурация должна вернуть массив'); }
     foreach (array_keys(require __DIR__ . '/config.example.php') as $key) {
         if (!array_key_exists($key, $config)) { throw new RuntimeException('Отсутствует параметр config: ' . $key); }
     }
     if (!in_array($config['zero_price_policy'], ['preserve', 'import'], true)) { throw new RuntimeException('Некорректный zero_price_policy'); }
+    if (!in_array($config['duplicate_policy'], ['error', 'skip'], true)) { throw new RuntimeException('Некорректный duplicate_policy'); }
     if (isset($options['source'])) { $config['source'] = $options['source']; }
     if (isset($options['no-images'])) { $config['images'] = false; }
     $limit = $options['limit'] ?? '0';
@@ -80,7 +83,7 @@ try {
         $dbLock = true;
         $importer = new Importer($modx, $config, $feed, $downloader, $tempDir, isset($options['dry-run']));
         $stats = $importer->run($path, (int)$limit);
-        $exit = $stats['failed'] || $stats['image_errors'] ? 2 : 0;
+        $exit = $stats['failed'] || $stats['image_errors'] || $stats['skipped_duplicates'] ? 2 : 0;
     }
 } catch (Throwable $e) {
     Importer::log('fatal', ['error' => $e->getMessage()]);

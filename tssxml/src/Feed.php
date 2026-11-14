@@ -9,6 +9,8 @@ use XMLReader;
 
 final class Feed
 {
+    private array $duplicates = [];
+    private ?string $validatedPath = null;
     public function __construct(private array $config) {}
 
     /** Streaming read. External DTDs are not loaded, entities are not expanded. */
@@ -125,7 +127,8 @@ final class Feed
         if ($name === '' || mb_strlen($name) > 255) { throw new RuntimeException('Пустое/длинное название: ' . $article); }
         $price = self::number((string)$xml->price, 9999999999.99, 2);
         $currency = trim((string)$xml->currencyId);
-        // TSS emits empty currencyId for zero prices (price on request).
+        $currency = $this->config['currency_aliases'][$currency] ?? $currency;
+        // RUR and RUB denote the same ruble; no exchange-rate conversion.
         if ($currency !== $this->config['currency'] && !($currency === '' && $price === 0.0)) {
             throw new RuntimeException('Неподдерживаемая валюта: ' . $article);
         }
@@ -147,6 +150,9 @@ final class Feed
                 }
             }
         }
+        $weight = trim((string)$xml->weight);
+        if ($weight === '') { $weight = $params['Вес, кг'][0] ?? ''; }
+        if ($weight !== '') { $data['weight'] = self::number($weight, 9999999999.999, 3); }
         $description = $params['Описание товара'][0] ?? trim((string)$xml->description);
         // Treat supplier HTML/MODX tags as text. Templates must also escape option values.
         $description = preg_replace('~<(?:br\s*/?|/p|/div|/li)>~i', "\n", $description);
@@ -159,6 +165,16 @@ final class Feed
                 continue;
             }
             $options[self::optionKey($key)] = ['caption' => $key, 'unit' => $units[$key], 'values' => array_values(array_unique($values))];
+        }
+        foreach (['barcode' => ['tss_barcode', 'Штрихкод'], 'dimensions' => ['tss_dimensions', 'Габариты, см (Д/Ш/В)']] as $tag => [$key, $caption]) {
+            $values = [];
+            foreach ($xml->{$tag} as $value) {
+                $text = trim((string)$value);
+                if ($text !== '') { $values[] = $text; }
+            }
+            if ($values) {
+                $options[$key] = ['caption' => $caption, 'unit' => '', 'values' => array_values(array_unique($values))];
+            }
         }
         $available = strtolower(trim((string)$xml['available']));
         if ($available !== '' && !in_array($available, ['true', 'false', '1', '0'], true)) {
@@ -180,17 +196,28 @@ final class Feed
         ];
     }
 
+    public function isDuplicate(string $article): bool
+    {
+        return isset($this->duplicates[mb_strtolower($article)]);
+    }
+
+    public function ensureValidated(string $path): void
+    {
+        if ($this->validatedPath !== $path) { $this->inspect($path); }
+    }
+
     /** Full validation before writes, bounded memory: only category/SKU sets retained. */
     public function inspect(string $path): array
     {
         $categories = $this->categories($path);
         $seen = [];
+        $this->duplicates = [];
+        $this->validatedPath = null;
         $count = $stock = $images = $zeroPrices = 0;
         foreach ($this->nodes($path, 'offer') as $node) {
             $o = $this->offer($node);
             $key = mb_strtolower($o['data']['article']);
-            if (isset($seen[$key])) { throw new RuntimeException('Повторный артикул: ' . $o['data']['article']); }
-            $seen[$key] = true;
+            $seen[$key][] = ['article' => $o['data']['article'], 'offer_id' => $o['external_id'], 'name' => $o['name']];
             if (!isset($categories[$o['category']])) {
                 throw new RuntimeException('Неизвестная categoryId: ' . $o['category']);
             }
@@ -200,6 +227,17 @@ final class Feed
             $images += count($o['pictures']);
         }
         if ($count === 0) { throw new RuntimeException('В XML нет товаров YML'); }
-        return ['categories' => count($categories), 'offers' => $count, 'with_numeric_stock' => $stock, 'pictures' => $images, 'zero_prices' => $zeroPrices];
+        $duplicateRecords = 0;
+        foreach ($seen as $key => $records) {
+            if (count($records) > 1) {
+                $this->duplicates[(string)$key] = $records;
+                $duplicateRecords += count($records);
+            }
+        }
+        if ($this->duplicates && $this->config['duplicate_policy'] === 'error') {
+            throw new RuntimeException('Повторные артикулы: ' . implode(', ', array_map(static fn(array $records): string => $records[0]['article'], array_values($this->duplicates))));
+        }
+        $this->validatedPath = $path;
+        return ['duplicate_articles' => array_values($this->duplicates), 'duplicate_records' => $duplicateRecords, 'importable_offers' => $count - $duplicateRecords, 'categories' => count($categories), 'offers' => $count, 'with_numeric_stock' => $stock, 'pictures' => $images, 'zero_prices' => $zeroPrices];
     }
 }
