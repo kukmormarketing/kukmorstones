@@ -1,5 +1,5 @@
 {
-  "module": "TssXml 1.1.0",
+  "module": "TssXml 1.2.0",
   "date": "2026-11-14",
   "php": "8.5.8",
   "parser_tests": 42,
@@ -19,5 +19,8 @@
   "console_auto_protocol": "passed",
   "real_xpdo_primary_key_contract": "passed without database",
   "real_modx_integration": "not run",
-  "known_site_issue": "user Media Source parseProperties hang not confirmed resolved; Console defaults to no images"
+  "known_site_issue": "user Media Source parseProperties hang not confirmed resolved; Console defaults to no images",
+  "publication_tests": "passed with MODX API doubles: scope, zero/nonzero prices unchanged, cursor, recheck, errors, categories/deleted/other-context/source excluded, no terminal restart",
+  "publish_to_images_workflow": "passed with API doubles: sequential phases, auto continuation, completion/error stop, sudo check, parser override only after publication",
+  "real_publication_integration": "not run"
 }

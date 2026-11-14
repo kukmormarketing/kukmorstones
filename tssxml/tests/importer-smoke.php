@@ -31,11 +31,12 @@ namespace MODX\Revolution {
         }
         public function fetchColumn(): int { return $this->value; }
     }
-    class Cache { public function refresh(...$args): void {} }
+    class Cache { public array $requests = []; public function refresh(...$args): void { $this->requests[] = $args; } }
     class modX {
         public array $resources = [], $data = [], $options = [], $definitions = [], $bindings = [], $calls = [];
         public Cache $cacheManager;
         public bool $dbLocked = false;
+        public array $publishFailures = [];
         public function prepare($sql): Statement { return new Statement($this, $sql); }
         public function __construct() { $this->cacheManager = new Cache(); }
         public function getFields($class): array { return array_fill_keys(['id', 'pagetitle', 'alias', 'parent', 'properties', 'template', 'published', 'hidemenu', 'show_in_tree', 'context_key', 'class_key', 'content', 'richtext', 'deleted'], null); }
@@ -50,6 +51,9 @@ namespace MODX\Revolution {
             return $matches;
         }
         public function getIterator($class, $where): array {
+            if (($where['class_key'] ?? null) === \MiniShop3\Model\msProduct::class) {
+                return array_filter($this->resources, fn($r) => $r instanceof \MiniShop3\Model\msProduct && $r->get('context_key') === $where['context_key'] && !$r->get('deleted') && !$r->get('published'));
+            }
             return array_filter($this->resources, fn($r) => $r instanceof \MiniShop3\Model\msCategory && $r->get('context_key') === $where['context_key']);
         }
         public function getObject($class, $where) {
@@ -62,6 +66,14 @@ namespace MODX\Revolution {
         public function newObject($class) { return new $class([], $this); }
         public function runProcessor($class, $payload): Response {
             $this->calls[] = [$class, $payload];
+            if ($class === 'MODX\\Revolution\\Processors\\Resource\\Publish') {
+                $id = (int)$payload['id'];
+                if (in_array($id, $this->publishFailures, true)) { throw new \RuntimeException('Simulated publish failure'); }
+                $this->resources[$id]->set('published', true);
+                $this->resources[$id]->set('pub_date', 0);
+                $this->resources[$id]->set('unpub_date', 0);
+                return new Response(['id' => $id]);
+            }
             $id = $payload['id'] ?? (count($this->resources) + 1);
             $model = str_contains($class, '\\Product\\') ? \MiniShop3\Model\msProduct::class : \MiniShop3\Model\msCategory::class;
             $old = $this->resources[$id] ?? new $model();
@@ -117,6 +129,7 @@ namespace {
     require dirname(__DIR__) . '/src/Downloader.php';
     require dirname(__DIR__) . '/src/Importer.php';
     require dirname(__DIR__) . '/src/ConsoleBatch.php';
+    require dirname(__DIR__) . '/src/PublishBatch.php';
     use TssXml\{Feed, Downloader, Importer, ConsoleBatch};
     class TestConsoleBatch extends ConsoleBatch {
         public static array $uploads = [];
@@ -293,6 +306,39 @@ namespace {
             foreach (glob($metadataDir . '/*') ?: [] as $file) { unlink($file); }
             if (is_dir($metadataDir)) { rmdir($metadataDir); }
         }
+        $publishModx = new \MODX\Revolution\modX();
+        $publishDir = sys_get_temp_dir() . '/tss-publish-test-' . bin2hex(random_bytes(8));
+        foreach ([201, 202, 203, 204, 205, 206, 207, 209, 210, 211] as $id) {
+            $fields = ['id' => $id, 'class_key' => msProduct::class, 'context_key' => 'web', 'deleted' => 0, 'published' => 0,
+                'properties' => ['tssxml' => ['source' => $config['source_key']]], 'price' => $id === 201 ? 0 : 100];
+            if ($id === 203) { $fields['properties']['tssxml']['source'] = 'other-supplier'; }
+            if ($id === 204) { $fields['properties'] = []; }
+            if ($id === 205) { $fields['deleted'] = 1; }
+            if ($id === 206) { $fields['context_key'] = 'other-context'; }
+            if ($id === 207) { $fields['published'] = 1; }
+            $publishModx->resources[$id] = new msProduct($fields);
+        }
+        $publishModx->resources[208] = new msCategory(['id' => 208, 'class_key' => msCategory::class, 'context_key' => 'web', 'published' => 0, 'properties' => ['tssxml' => ['source' => $config['source_key']]]]);
+        $publishModx->publishFailures = [210];
+        try {
+            $publishRun = static fn(): array => (new \TssXml\PublishBatch($publishModx, $config, $publishDir))->run(1, 60);
+            $publication = $publishRun();
+            ensure($publication['total'] === 5 && $publication['cursor'] === 1 && $publishModx->resources[201]->get('published'), 'First publication batch/scope failed');
+            ensure($publishModx->resources[201]->get('price') === 0, 'Publication changed zero price');
+            $publishModx->resources[202]->set('published', true);
+            $publishModx->resources[209]->set('properties', ['tssxml' => ['source' => 'changed-supplier']]);
+            for ($i = 0; $i < 5 && $publication['phase'] === 'publishing'; $i++) { $publication = $publishRun(); }
+            ensure($publication['phase'] === 'done_with_errors' && $publication['published'] === 2 && $publication['already_published'] === 1 && $publication['skipped'] === [209] && count($publication['errors']) === 1, 'Publication continuation/errors/recheck failed');
+            foreach ([203, 204, 205, 206, 208, 209, 210] as $id) { ensure(!$publishModx->resources[$id]->get('published'), 'Out-of-scope/failed resource published: ' . $id); }
+            ensure($publishModx->resources[211]->get('published') && $publishModx->resources[211]->get('price') === 100, 'Publication after a failed record did not continue');
+            $calls = count($publishModx->calls); $publishRun();
+            ensure(count($publishModx->calls) === $calls, 'Completed publication restarted');
+            foreach ($publishModx->cacheManager->requests as $request) { ensure(!isset($request[0]['all']), 'Publication cleared entire cache'); }
+        } finally {
+            foreach (glob($publishDir . '/*') ?: [] as $file) { unlink($file); }
+            if (is_dir($publishDir)) { rmdir($publishDir); }
+        }
+        echo "OK: scoped publication (zero prices, cursor, recheck, errors, no unrelated/deleted/context/category changes)\n";
         echo "OK: persistent Console batches (product/image cursors, snapshot, limits, unchanged categories, interruption, errors, lock, reset)\n";
         echo "OK: importer smoke (dry-run, hierarchy, repeat import, price update, zero price, preservation)\n";
     } finally { unlink($temp); }
